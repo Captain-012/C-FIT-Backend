@@ -3,6 +3,11 @@ import { jwtVallidator } from "../middleware/authMiddleware.js";
 import Workout from "../model/workout.js";
 import Conversation from "../model/conversation.js";
 import User from "../model/user.js";
+import Groq from "groq-sdk"
+import { envObj } from "../config/env.js";
+const groq = new Groq({
+    apiKey: envObj.apiCoachKey,
+});
 
 const router = express.Router();
 
@@ -289,20 +294,13 @@ router.post("/", jwtVallidator, async (req, res) => {
 
 
 
-        const ollamaResponse = await fetch(
-            "http://localhost:11434/api/chat",
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    model: "qwen3:8b",
-                    messages: [
+        const groqResponse = await groq.chat.completions.create({
+            model: "openai/gpt-oss-20b",
+            messages: [
 
-                        {
-                            role: "system",
-                            content: `
+                {
+                    role: "system",
+                    content: `
                         You are C-FIT Coach, a knowledgeable, friendly, and practical AI fitness coach.
 
                         YOUR RESPONSIBILITIES:
@@ -411,11 +409,11 @@ router.post("/", jwtVallidator, async (req, res) => {
 
                         Your goal is to help every C-FIT user make realistic, informed, and consistent progress toward their fitness goals.
                         `,
-                        },
+                },
 
-                        {
-                            role: "system",
-                            content: `Here is the authenticated user's fitness data from the C-FIT database.
+                {
+                    role: "system",
+                    content: `Here is the authenticated user's fitness data from the C-FIT database.
 
                             Fitness profile:
                             ${JSON.stringify(userFitnessData, null, 2)}
@@ -433,38 +431,24 @@ router.post("/", jwtVallidator, async (req, res) => {
                             - Calories burned are estimates, not exact measurements.
                             - This workout summary covers at most the 100 most recently created workouts.
                             - Use recorded workouts to personalize recommendations when relevant.`,
-                        },
+                },
 
 
-                        ...validHistory,
-                        {
-                            role: "user",
-                            content: message.trim(),
-                        },
-                    ],
-                    stream: false,
-                }),
-            }
-        );
+                ...validHistory,
+                {
+                    role: "user",
+                    content: message.trim(),
+                },
+            ],
 
-        if (!ollamaResponse.ok) {
-            console.error(
-                "Ollama returned status:",
-                ollamaResponse.status
-            );
 
-            return res.status(502).json({
-                status: false,
-                message: "The AI Coach could not generate a response",
-            });
-        }
 
-        const data = await ollamaResponse.json();
+        });
 
-        const aiReply = data.message?.content;
+        const aiReply = groqResponse.choices[0]?.message?.content;
 
         if (!aiReply) {
-            throw new Error("Ollama returned an empty response");
+            throw new Error("Groq returned an empty response");
         }
 
 

@@ -7,5 +7,6 @@ export const envObj = {
     mongoUrl: process.env.MONGO_URL,
     jwtSecretKey: process.env.JWT_SECRET,
     turnstileSecretKey : process.env.TURNSTILE_SECRET_KEY,
-    googleClientId : process.env.GOOGLE_CLIENT_ID
+    googleClientId : process.env.GOOGLE_CLIENT_ID,
+    apiCoachKey : process.env.API_COACH_KEY
 }
