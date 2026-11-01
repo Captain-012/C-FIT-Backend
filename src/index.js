@@ -10,8 +10,13 @@ import userRoutes from "./routes/user.js";
 
 
 const server = express();
-server.use(cors({
-    origin: envObj.origin
+const allowedOrigins = [
+    "http://localhost:5173",
+    envObj.origin
+];
+
+app.use(cors({
+    origin: allowedOrigins
 }));
 
 server.use(express.json());
