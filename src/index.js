@@ -15,7 +15,7 @@ const allowedOrigins = [
     envObj.origin
 ];
 
-app.use(cors({
+server.use(cors({
     origin: allowedOrigins
 }));
 
