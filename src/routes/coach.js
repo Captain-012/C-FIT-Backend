@@ -283,7 +283,7 @@ router.post("/", jwtVallidator, async (req, res) => {
 
             if (!hasDuration && !hasEquipment) {
                 reply =
-                    "Great choice! 💪 How much time do you have for this workout, and what equipment can you use? For example, 30 minutes with dumbbells or 20 minutes with no equipment.";
+                  " Great choice! 💪 How much time do you have for this workout, and what equipment do you have available? You can also choose a completely bodyweight workout with no equipment.";
             } else if (!hasDuration) {
                 reply =
                     "Great choice! 💪 How much time do you have for this workout? For example, 20, 30, or 45 minutes.";
@@ -598,9 +598,32 @@ router.post("/", jwtVallidator, async (req, res) => {
     } catch (error) {
         console.error("Coach error:", error);
 
-        return res.status(500).json({
+        let message = "Our AI Coach is temporarily unavailable. Please try again shortly.";
+        let statusCode = 500;
+
+        if (error.status === 401 || error.status === 403) {
+            message = "Our AI Coach is temporarily unavailable due to a service authentication issue. Please try again later.";
+            statusCode = 503;
+        }
+
+        else if (error.status === 429) {
+            message = "Our AI Coach is receiving too many requests. Please wait a moment and try again.";
+            statusCode = 429;
+        }
+
+        else if (error.status >= 500) {
+            message = "Our AI service is temporarily unavailable. Please try again shortly.";
+            statusCode = 503;
+        }
+
+        else if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+            message = "Unable to connect to our AI service. Please check your internet connection and try again.";
+            statusCode = 503;
+        }
+
+        return res.status(statusCode).json({
             status: false,
-            message: "Something went wrong with the AI Coach",
+            message,
         });
     }
 });
