@@ -30,6 +30,41 @@ const workoutSchema = new mongoose.Schema({
         required: true,
         min: [1, "Duration must be at least 1 minute"],
     },
+
+    exercises: [
+        {
+            name: {
+                type: String,
+                required: true,
+            },
+
+            sets: {
+                type: Number,
+                default: null,
+                min: 1,
+            },
+
+            reps: {
+                type: Number,
+                default: null,
+            },
+
+            duration: {
+                type: Number,
+                default: null,
+            },
+
+            rest: {
+                type: Number,
+                default: 60,
+            },
+
+            instructions: {
+                type: String,
+                default: "",
+            },
+        },
+    ],
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",

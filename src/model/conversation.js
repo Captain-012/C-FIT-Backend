@@ -21,6 +21,16 @@ const conversationSchema = new mongoose.Schema(
                     type: String,
                     required: true,
                 },
+
+                workout: {
+                    type: mongoose.Schema.Types.Mixed,
+                    default: null,
+                },
+
+                saved: {
+                    type: Boolean,
+                    default: false,
+                },
             },
         ],
     },

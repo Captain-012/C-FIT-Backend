@@ -33,6 +33,64 @@ router.get("/history", jwtVallidator, async (req, res) => {
 });
 
 
+router.patch("/history/save-workout", jwtVallidator, async (req, res) => {
+    try {
+        const { messageIndex } = req.body;
+
+        if (
+            !Number.isInteger(messageIndex) ||
+            messageIndex < 0
+        ) {
+            return res.status(400).json({
+                status: false,
+                message: "A valid message index is required.",
+            });
+        }
+
+        const conversation = await Conversation.findOne({
+            user: req.user.userId,
+        });
+
+        if (!conversation || !conversation.messages[messageIndex]) {
+            return res.status(404).json({
+                status: false,
+                message: "Workout message not found.",
+            });
+        }
+
+        const selectedMessage = conversation.messages[messageIndex];
+
+        if (
+            selectedMessage.role !== "assistant" ||
+            !selectedMessage.workout
+        ) {
+            return res.status(400).json({
+                status: false,
+                message: "This message does not contain a workout.",
+            });
+        }
+
+        selectedMessage.saved = true;
+
+        await conversation.save();
+
+        return res.status(200).json({
+            status: true,
+            message: "Workout save status updated.",
+        });
+
+    } catch (error) {
+        console.error("Update workout status error:", error);
+
+        return res.status(500).json({
+            status: false,
+            message: "Failed to update workout save status.",
+        });
+    }
+});
+
+
+
 router.delete("/history", jwtVallidator, async (req, res) => {
     try {
         const conversation = await Conversation.findOneAndUpdate(
@@ -408,6 +466,49 @@ router.post("/", jwtVallidator, async (req, res) => {
 
 
                         Your goal is to help every C-FIT user make realistic, informed, and consistent progress toward their fitness goals.
+
+                        EQUIPMENT RULES:
+                        - Strictly respect the equipment specified by the user.
+                        - If the user says no equipment, generate exercises requiring only body weight.
+                        - Do not require chairs, benches, tables, walls, dumbbells, or other external equipment.
+                        - Never suggest incline or decline exercises that require raised surfaces when no equipment is available.
+
+
+
+                        RESPONSE FORMAT — VERY IMPORTANT:
+
+                        - Always return a valid JSON object.
+                        - The object must contain two properties: "reply" and "workout".
+                        - "reply" must contain the natural-language response displayed in the chat.
+                        - "workout" must be null when asking follow-up questions, answering general questions, or when no complete workout has been generated.
+                        - When a complete workout has been generated, "workout" must contain:
+
+                        {
+                            "name": "Workout name",
+                            "description": "Workout description",
+                            "category": "Strength", 
+                            "difficulty": "Beginner",
+                            "duration": 30,
+                            "exercises": [
+                                {
+                                    "name": "Push-ups",
+                                    "sets": 3,
+                                    "reps": 12,
+                                    "duration": null,
+                                    "rest": 60,
+                                    "instructions": "Keep your body straight while lowering your chest."
+                                }
+                            ]
+                        }
+
+                        - Category must be Strength, Cardio, Flexibility, Balance, or Yoga.
+                        - Difficulty must be Beginner, Intermediate, or Advanced.
+                        - Workout duration must be in minutes.
+                        - Exercise duration must be in seconds.
+                        - For repetition-based exercises, provide reps and set duration to null.
+                        - For timed exercises, provide duration and set reps to null.
+                        - Never generate a workout object when essential information is missing.
+                        - Never invent exercises or disregard the user's equipment.
                         `,
                 },
 
@@ -440,12 +541,22 @@ router.post("/", jwtVallidator, async (req, res) => {
                     content: message.trim(),
                 },
             ],
+            response_format: {
+                type: "json_object"
+            },
 
 
 
         });
 
-        const aiReply = groqResponse.choices[0]?.message?.content;
+        const aiResult = JSON.parse(
+            groqResponse.choices[0]?.message?.content
+        );
+
+        const aiReply = aiResult.reply;
+        const workoutPlan = aiResult.workout || null;
+        console.log("Generated workout plan:", workoutPlan);
+
 
         if (!aiReply) {
             throw new Error("Groq returned an empty response");
@@ -465,6 +576,8 @@ router.post("/", jwtVallidator, async (req, res) => {
                             {
                                 role: "assistant",
                                 content: aiReply,
+                                workout: workoutPlan || null,
+                                saved: false,
                             },
                         ],
                     },
@@ -479,6 +592,7 @@ router.post("/", jwtVallidator, async (req, res) => {
         return res.status(200).json({
             status: true,
             reply: aiReply,
+            workout: workoutPlan
         });
 
     } catch (error) {

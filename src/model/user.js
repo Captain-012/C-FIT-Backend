@@ -52,6 +52,36 @@ const userSchema = new mongoose.Schema({
         },
     },
 
+    exercises: [
+        {
+            name: {
+                type: String,
+                required: true,
+            },
+            sets: {
+                type: Number,
+                required: true,
+                min: 1,
+            },
+            reps: {
+                type: Number,
+                default: null,
+            },
+            duration: {
+                type: Number,
+                default: null,
+            },
+            rest: {
+                type: Number,
+                default: 60,
+            },
+            instructions: {
+                type: String,
+                default: "",
+            },
+        },
+    ],
+
 }, { timestamps: true });
 
 const User = mongoose.model("User", userSchema);

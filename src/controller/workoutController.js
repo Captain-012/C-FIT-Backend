@@ -7,7 +7,8 @@ export const createWorkout = async (req, res) => {
             description,
             category,
             difficulty,
-            duration
+            duration,
+            exercises
         } = req.body;
 
         const workout = await Workout.create({
@@ -16,6 +17,7 @@ export const createWorkout = async (req, res) => {
             category,
             difficulty,
             duration,
+            exercises,
             user: req.user.userId
         });
 
@@ -27,7 +29,7 @@ export const createWorkout = async (req, res) => {
 
     } catch (error) {
         console.log(error);
-       
+
 
         if (error.name === "ValidationError") {
             const errors = {};
