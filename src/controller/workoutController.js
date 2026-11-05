@@ -11,6 +11,28 @@ export const createWorkout = async (req, res) => {
             exercises
         } = req.body;
 
+        // Validate exercise numeric fields before saving
+        if (exercises && Array.isArray(exercises)) {
+            for (const exercise of exercises) {
+                const numericFields = ["sets", "reps", "duration", "rest"];
+
+                for (const field of numericFields) {
+                    const value = exercise[field];
+
+                    if (
+                        value !== null &&
+                        value !== undefined &&
+                        (typeof value !== "number" || !Number.isFinite(value))
+                    ) {
+                        return res.status(400).json({
+                            status: false,
+                            message: `Invalid exercise data: ${field} must be a number or null.`,
+                        });
+                    }
+                }
+            }
+        }
+
         const workout = await Workout.create({
             name,
             description,
