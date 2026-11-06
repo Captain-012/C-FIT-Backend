@@ -283,7 +283,7 @@ router.post("/", jwtVallidator, async (req, res) => {
 
             if (!hasDuration && !hasEquipment) {
                 reply =
-                  " Great choice! 💪 How much time do you have for this workout, and what equipment do you have available? You can also choose a completely bodyweight workout with no equipment.";
+                    " Great choice! 💪 How much time do you have for this workout, and what equipment do you have available? You can also choose a completely bodyweight workout with no equipment.";
             } else if (!hasDuration) {
                 reply =
                     "Great choice! 💪 How much time do you have for this workout? For example, 20, 30, or 45 minutes.";
@@ -352,13 +352,16 @@ router.post("/", jwtVallidator, async (req, res) => {
 
 
 
-        const groqResponse = await groq.chat.completions.create({
-            model: "openai/gpt-oss-20b",
-            messages: [
+        let groqResponse;
 
-                {
-                    role: "system",
-                    content: `
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+                groqResponse = await groq.chat.completions.create({
+                    model: "openai/gpt-oss-20b",
+                    messages: [
+                        {
+                            role: "system",
+                            content: `
                         You are C-FIT Coach, a knowledgeable, friendly, and practical AI fitness coach.
 
                         YOUR RESPONSIBILITIES:
@@ -443,7 +446,7 @@ router.post("/", jwtVallidator, async (req, res) => {
 
 
 
-                      
+
                         STRICT WORKOUT CREATION GATE — HIGHEST PRIORITY:
 
                         When the user requests a new workout, workout plan, or exercise routine, you MUST first determine whether you have enough information to create a personalized workout.
@@ -486,7 +489,7 @@ router.post("/", jwtVallidator, async (req, res) => {
                         {
                             "name": "Workout name",
                             "description": "Workout description",
-                            "category": "Strength", 
+                            "category": "Strength",
                             "difficulty": "Beginner",
                             "duration": 30,
                             "exercises": [
@@ -501,6 +504,30 @@ router.post("/", jwtVallidator, async (req, res) => {
                             ]
                         }
 
+
+
+                        STRICT DATA TYPE RULES — CRITICAL:
+
+                        - Every numeric field in the workout object must contain a valid JSON number or null. Never put descriptive text inside numeric fields.
+                        - "sets" must be a number or null.
+                        - "reps" must be a number or null.
+                        - "duration" must be a number or null.
+                        - "rest" must always be a number representing seconds.
+                        - Never include words, units, explanations, or phrases such as "per leg", "each side", "seconds", "minutes", or "repetitions" inside numeric fields.
+                        - For unilateral exercises (exercises performed on both sides), provide the numeric repetition count in "reps" and explain "per leg" or "per side" inside "instructions".
+                        - For example, if an exercise requires 10 repetitions per leg, return "reps": 10 and explain "Perform 10 repetitions on each leg." in "instructions".
+                        - Do not return numeric values as strings. For example, use 10, never "10".
+                        - Before returning the JSON object, verify that every exercise follows these data types exactly.
+                        - If an exercise is repetition-based, "reps" must be numeric and "duration" must be null.
+                        - If an exercise is time-based, "duration" must be numeric and "reps" must be null.
+                        - The top-level workout "duration" must always be a number representing total workout minutes.
+                        - Each exercise's "duration" must be a number representing seconds or null when the exercise is repetition-based.
+
+
+
+
+
+
                         - Category must be Strength, Cardio, Flexibility, Balance, or Yoga.
                         - Difficulty must be Beginner, Intermediate, or Advanced.
                         - Workout duration must be in minutes.
@@ -509,12 +536,12 @@ router.post("/", jwtVallidator, async (req, res) => {
                         - For timed exercises, provide duration and set reps to null.
                         - Never generate a workout object when essential information is missing.
                         - Never invent exercises or disregard the user's equipment.
-                        `,
-                },
+                    `,
+                        },
 
-                {
-                    role: "system",
-                    content: `Here is the authenticated user's fitness data from the C-FIT database.
+                        {
+                            role: "system",
+                            content: `Here is the authenticated user's fitness data from the C-FIT database.
 
                             Fitness profile:
                             ${JSON.stringify(userFitnessData, null, 2)}
@@ -532,22 +559,38 @@ router.post("/", jwtVallidator, async (req, res) => {
                             - Calories burned are estimates, not exact measurements.
                             - This workout summary covers at most the 100 most recently created workouts.
                             - Use recorded workouts to personalize recommendations when relevant.`,
-                },
+                        },
 
 
-                ...validHistory,
-                {
-                    role: "user",
-                    content: message.trim(),
-                },
-            ],
-            response_format: {
-                type: "json_object"
-            },
+                        ...validHistory,
+                        {
+                            role: "user",
+                            content: message.trim(),
+                        },
+                    ],
+                    response_format: {
+                        type: "json_object"
+                    },
+                });
 
+                break;
 
+            } catch (error) {
+                const errorCode = error.code || error.error?.code;
 
-        });
+                if (errorCode !== "json_validate_failed" || attempt === 2) {
+                    throw error;
+                }
+
+                console.warn(
+                    "Groq JSON validation failed. Retrying request..."
+                );
+            }
+        }
+
+        if (!groqResponse?.choices?.[0]?.message?.content) {
+            throw new Error("Groq returned an empty response after retrying.");
+        }
 
         const aiResult = JSON.parse(
             groqResponse.choices[0]?.message?.content
